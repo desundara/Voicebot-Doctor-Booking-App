@@ -1,0 +1,12 @@
+{
+  "name": "voicebot-doctor-booking",
+  "version": "1.0.0",
+  "description": "Multilingual voicebot for booking doctor appointments on weekdays (English, Sinhala, French, Chinese, Greek, Italian).",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

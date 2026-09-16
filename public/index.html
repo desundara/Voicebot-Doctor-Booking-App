@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Doctor Booking Voicebot</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          display: ['Poppins', 'sans-serif'],
+          body: ['Inter', 'sans-serif'],
+        },
+        colors: {
+          deep_twilight: { DEFAULT: '#03045e', 100: '#010113', 200: '#010226', 300: '#020338', 400: '#02044b', 500: '#03045e', 600: '#0508ae', 700: '#0f12f8', 800: '#5f61fa', 900: '#afb0fd' },
+          bright_teal_blue: { DEFAULT: '#0077b6', 100: '#001825', 200: '#003049', 300: '#00486e', 400: '#005f93', 500: '#0077b6', 600: '#00a2f9', 700: '#3bbaff', 800: '#7cd1ff', 900: '#bee8ff' },
+          turquoise_surf: { DEFAULT: '#00b4d8', 100: '#00242b', 200: '#004756', 300: '#006b81', 400: '#008fab', 500: '#00b4d8', 600: '#12d8ff', 700: '#4ee1ff', 800: '#89ebff', 900: '#c4f5ff' },
+          frosted_blue: { DEFAULT: '#90e0ef', 100: '#0a3a43', 200: '#137586', 300: '#1dafc9', 400: '#4ccfe6', 500: '#90e0ef', 600: '#a6e7f2', 700: '#bcedf5', 800: '#d2f3f9', 900: '#e9f9fc' },
+          light_cyan: { DEFAULT: '#caf0f8', 100: '#0a444f', 200: '#15889f', 300: '#2ac4e3', 400: '#79daee', 500: '#caf0f8', 600: '#d4f3f9', 700: '#dff6fb', 800: '#e9f9fc', 900: '#f4fcfe' },
+        },
+      },
+    },
+  };
+</script>
+
+<link rel="stylesheet" href="style.css" />
+</head>
+<body class="font-body min-h-screen flex items-center justify-center p-4 md:p-6 bg-deep_twilight-500 bg-ocean">
+
+  <div class="w-full max-w-[560px] h-[92vh] max-h-[820px] flex flex-col rounded-3xl overflow-hidden shadow-2xl shadow-deep_twilight-500/50 ring-1 ring-white/10">
+
+    <!-- Header -->
+    <header class="relative shrink-0 px-5 pt-5 pb-4 bg-gradient-to-br from-deep_twilight-500 via-bright_teal_blue-500 to-turquoise_surf-500">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 shrink-0 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center text-xl ring-1 ring-white/20">
+          🩺
+        </div>
+        <div class="min-w-0">
+          <h1 class="font-display font-semibold text-white text-lg leading-tight truncate">Doctor Booking Assistant</h1>
+          <p class="text-white/75 text-xs mt-0.5">Voice &amp; text · weekdays only</p>
+        </div>
+        <button id="restartBtn" title="Start over" aria-label="Start over"
+          class="ml-auto shrink-0 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 transition text-white flex items-center justify-center text-sm">
+          ↺
+        </button>
+      </div>
+
+      <!-- Step progress -->
+      <div class="mt-4">
+        <div class="flex items-center justify-between text-[11px] text-white/80 mb-1.5">
+          <span id="stepLabel" class="font-medium">Step 1 of 6 — Choose your language</span>
+        </div>
+        <div class="h-1.5 w-full rounded-full bg-white/15 overflow-hidden">
+          <div id="stepFill" class="h-full rounded-full bg-gradient-to-r from-turquoise_surf-600 to-light_cyan-500 transition-all duration-500 ease-out" style="width: 16.66%;"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Chat -->
+    <main id="chatPanel" class="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-light_cyan-900"></main>
+
+    <!-- Choices -->
+    <section id="choicesPanel" class="px-4 pb-3 bg-light_cyan-900 flex flex-wrap gap-2 shrink-0"></section>
+
+    <!-- Input -->
+    <footer class="shrink-0 px-3 py-3 bg-white border-t border-light_cyan-700 flex items-center gap-2">
+      <button id="micBtn" title="Speak" aria-label="Speak your answer"
+        class="w-11 h-11 shrink-0 rounded-full bg-bright_teal_blue-900 text-bright_teal_blue-500 flex items-center justify-center text-lg transition">
+        🎤
+      </button>
+      <input id="textInput" type="text" placeholder="Type your answer here…" autocomplete="off"
+        class="flex-1 min-w-0 rounded-full border border-light_cyan-700 px-4 py-2.5 text-sm text-deep_twilight-500 outline-none focus:border-turquoise_surf-500 focus:ring-2 focus:ring-turquoise_surf-900 transition" />
+      <button id="sendBtn"
+        class="shrink-0 rounded-full px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-bright_teal_blue-500 to-turquoise_surf-500 hover:from-bright_teal_blue-400 hover:to-turquoise_surf-400 active:scale-95 transition shadow-md shadow-bright_teal_blue-500/30">
+        Send
+      </button>
+    </footer>
+
+    <div id="statusBar" class="shrink-0 text-center text-[11px] text-deep_twilight-400/60 bg-white pb-2 h-4"></div>
+  </div>
+
+  <script src="translations.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

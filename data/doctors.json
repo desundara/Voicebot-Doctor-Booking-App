@@ -1,0 +1,7 @@
+[
+  { "id": 1, "name": "Dr. Nimal Perera", "specialtyKey": "generalPhysician", "slots": ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"] },
+  { "id": 2, "name": "Dr. Ishara Fernando", "specialtyKey": "dentist", "slots": ["09:30", "10:30", "13:00", "14:00", "15:30"] },
+  { "id": 3, "name": "Dr. Kasun Silva", "specialtyKey": "cardiologist", "slots": ["10:00", "11:00", "12:00", "15:00", "16:00"] },
+  { "id": 4, "name": "Dr. Malithi Jayasuriya", "specialtyKey": "pediatrician", "slots": ["09:00", "09:30", "10:00", "13:30", "14:30"] },
+  { "id": 5, "name": "Dr. Roshan Wickramasinghe", "specialtyKey": "dermatologist", "slots": ["11:00", "12:00", "14:00", "15:00", "16:30"] }
+]
