@@ -4,7 +4,11 @@
   "description": "Multilingual voicebot for booking doctor appointments on weekdays (English, Sinhala, French, Chinese, Greek, Italian).",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.x"
   },
   "dependencies": {
     "express": "^4.19.2"
