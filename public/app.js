@@ -249,11 +249,13 @@
       window.open(url, "_blank", "noopener");
       systemNote(t("calendarGoogleNote", state.lang));
     };
+    document.getElementById("icsBtn").onclick = () => {
+      downloadICS(state.selectedDoctor.name, state.selectedDay, state.selectedTime, state.patientName, booking.id);
+      systemNote(t("calendarDownloadedNote", state.lang));
+    };
   }
 
   // ---------- Shared date math for calendar exports ----------
-  // Returns the next occurrence of `day` (mon-fri) at `time`, as UTC-formatted
-  // strings ready to drop into an .ics file or a Google Calendar URL.
   function computeEventUTCRange(day, time) {
     const dayIndexMap = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5 };
     const targetDow = dayIndexMap[day];
@@ -393,6 +395,119 @@
     return null;
   }
 
+  // ---------- Free-text understanding (chatbot layer) ----------
+  // Word-boundary aware substring check: for plain a-z keywords this avoids
+  // false positives like "fri" matching inside "friend". Non-Latin scripts
+  // (Sinhala/Chinese/Greek) don't have the same word-boundary concept in
+  // regex, so those fall back to a plain substring check.
+  function textHasKeyword(lowerText, word) {
+    const w = word.toLowerCase();
+    if (/^[a-z0-9 ]+$/.test(w)) {
+      return new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(lowerText);
+    }
+    return lowerText.includes(w);
+  }
+
+  const SPECIALTY_KEYWORDS = {
+    generalPhysician: ["general physician", "general practitioner", "gp", "physician", "checkup", "check up", "fever", "cold", "flu", "සාමාන්‍ය වෛද්‍ය", "සාමාන්‍ය", "උණ", "සෙම්ප්‍රතිශ්‍යාව", "médecin généraliste", "généraliste", "fièvre", "全科", "发烧", "感冒", "全科医生", "γενικός ιατρός", "γενικός", "πυρετ", "medico di base", "febbre", "influenza"],
+    dentist: ["dentist", "tooth", "teeth", "dental", "toothache", "දන්ත", "දත්", "දත් කැක්කුම", "dentiste", "dent", "mal de dent", "牙医", "牙痛", "牙", "οδοντίατρος", "δόντι", "πονόδοντος", "dentista", "dente", "mal di denti"],
+    cardiologist: ["cardiologist", "heart", "chest pain", "cardiac", "හෘද", "හදවත", "cardiologue", "cœur", "coeur", "douleur thoracique", "心脏", "心脏科", "καρδιολόγος", "καρδι", "πόνος στο στήθος", "cardiologo", "cuore", "dolore al petto"],
+    pediatrician: ["pediatrician", "paediatrician", "child", "kids", "baby", "children", "ළමා", "බබා", "දරුවා", "pédiatre", "enfant", "bébé", "儿科", "孩子", "婴儿", "παιδίατρος", "παιδ", "μωρό", "pediatra", "bambino"],
+    dermatologist: ["dermatologist", "skin", "rash", "acne", "dermatology", "චර්ම", "සම", "dermatologue", "peau", "éruption", "皮肤", "皮疹", "δερματολόγος", "δέρματ", "εξάνθημα", "dermatologo", "pelle", "eruzione"],
+  };
+
+  function matchSpecialtyFromText(text, doctors) {
+    const lower = text.toLowerCase();
+    // Full name match first ("Dr. Kasun Silva"), then fall back to a single
+    // name token ("Silva") so "I want to see Dr. Silva" still resolves.
+    const byName = doctors.find((d) => {
+      const nameNoTitle = d.name.toLowerCase().replace(/^dr\.?\s*/, "");
+      if (lower.includes(nameNoTitle)) return true;
+      const tokens = nameNoTitle.split(" ").filter((w) => w.length > 2);
+      return tokens.some((tok) => textHasKeyword(lower, tok));
+    });
+    if (byName) return byName;
+    for (const [key, words] of Object.entries(SPECIALTY_KEYWORDS)) {
+      if (words.some((w) => textHasKeyword(lower, w))) {
+        const doc = doctors.find((d) => d.specialtyKey === key);
+        if (doc) return doc;
+      }
+    }
+    return null;
+  }
+
+  const WEEKDAY_ALIASES = {
+    monday: ["mon"],
+    tuesday: ["tue", "tues"],
+    wednesday: ["wed"],
+    thursday: ["thu", "thur", "thurs"],
+    friday: ["fri"],
+  };
+
+  function matchWeekdayFromText(text) {
+    const lower = text.toLowerCase();
+    for (const day of WEEKDAYS) {
+      const translations = Object.values(WEEKDAY_NAMES[day]).map((s) => s.toLowerCase());
+      const aliases = WEEKDAY_ALIASES[day] || [];
+      if ([...translations, ...aliases].some((w) => textHasKeyword(lower, w))) {
+        return day;
+      }
+    }
+    return null;
+  }
+
+  function matchTimeFromText(text, freeSlots) {
+    if (!freeSlots || !freeSlots.length) return null;
+    const lower = text.toLowerCase();
+
+    let m = lower.match(/(\d{1,2})[:.](\d{2})/);
+    if (m) {
+      const candidate = `${m[1].padStart(2, "0")}:${m[2]}`;
+      if (freeSlots.includes(candidate)) return candidate;
+    }
+
+    m = lower.match(/(\d{1,2})\s?(am|pm)/);
+    if (m) {
+      let hh = parseInt(m[1], 10);
+      if (m[2] === "pm" && hh < 12) hh += 12;
+      if (m[2] === "am" && hh === 12) hh = 0;
+      const candidate = freeSlots.find((s) => s.startsWith(String(hh).padStart(2, "0") + ":"));
+      if (candidate) return candidate;
+    }
+
+    m = lower.match(/\b(\d{1,2})\b/);
+    if (m) {
+      const candidate = freeSlots.find((s) => s.startsWith(m[1].padStart(2, "0") + ":"));
+      if (candidate) return candidate;
+    }
+    return null;
+  }
+
+  const SMALL_TALK_KEYWORDS = {
+    greeting: ["hello", "hi", "hey", "ආයුබෝවන්", "bonjour", "salut", "你好", "γεια", "ciao"],
+    thanks: ["thank you", "thanks", "ස්තූතියි", "merci", "谢谢", "ευχαριστ", "grazie"],
+    help: ["help", "what can you do", "options", "මොනවද", "aide", "帮助", "βοήθεια", "aiuto"],
+  };
+
+  function matchSmallTalk(text) {
+    const lower = text.toLowerCase();
+    for (const [type, words] of Object.entries(SMALL_TALK_KEYWORDS)) {
+      if (words.some((w) => textHasKeyword(lower, w))) return type;
+    }
+    return null;
+  }
+
+  function respondSmallTalk(type) {
+    const key = type === "greeting" ? "smallTalkGreetingReply" : type === "thanks" ? "smallTalkThanksReply" : "smallTalkHelpReply";
+    botSay(t(key, state.lang), () => {
+      if (state.stage === "SPECIALTY") askSpecialty();
+      else if (state.stage === "DAY") askDay();
+      else if (state.stage === "TIME") askTime();
+      else if (state.stage === "CONFIRM") askConfirm();
+      else if (state.stage === "BOOK_ANOTHER") askBookAnother();
+    });
+  }
+
   // ---------- API helpers ----------
   async function apiGet(url) {
     const res = await fetch(url);
@@ -409,6 +524,13 @@
 
   // ---------- Flow control ----------
   function handleUserInput(raw, clickedOption) {
+    if (!clickedOption && state.stage !== "NAME" && state.stage !== "LANG_SELECT") {
+      const smallTalk = matchSmallTalk(raw);
+      if (smallTalk) {
+        respondSmallTalk(smallTalk);
+        return;
+      }
+    }
     switch (state.stage) {
       case "SPECIALTY":
         return onSpecialtyAnswer(raw, clickedOption);
@@ -445,12 +567,34 @@
       if (n) doctor = state.doctors[n - 1];
     }
     if (!doctor) {
+      doctor = matchSpecialtyFromText(raw, state.doctors);
+    }
+    if (!doctor) {
       botSay(t("notUnderstood", state.lang));
       return;
     }
     state.selectedDoctor = doctor;
     resetChoicesPanelLayout();
     clearChoices();
+
+    // Bonus: "book me a dentist for Monday" — same message also names a day, so skip the day question.
+    const impliedDay = clickedOption ? null : matchWeekdayFromText(raw);
+    if (impliedDay) {
+      botSay(t("confirmDoctor", state.lang, { doctor: doctor.name }), async () => {
+        state.selectedDay = impliedDay;
+        state.stage = "DAY";
+        updateStepBar(3);
+        const availability = await apiGet(`/api/availability?doctorId=${state.selectedDoctor.id}&day=${impliedDay}`);
+        state.freeSlots = availability.freeSlots || [];
+        if (state.freeSlots.length === 0) {
+          botSay(t("noSlots", state.lang), () => askDay());
+        } else {
+          askTime();
+        }
+      });
+      return;
+    }
+
     botSay(t("confirmDoctor", state.lang, { doctor: doctor.name }), () => askDay());
   }
 
@@ -475,6 +619,9 @@
       if (n) day = WEEKDAYS[n - 1];
     }
     if (!day) {
+      day = matchWeekdayFromText(raw);
+    }
+    if (!day) {
       botSay(t("notUnderstood", state.lang));
       return;
     }
@@ -488,6 +635,18 @@
       botSay(t("noSlots", state.lang), () => askDay());
       return;
     }
+
+    // Bonus: "Monday at 3pm" — same message also named a time, so skip the time question.
+    const impliedTime = clickedOption ? null : matchTimeFromText(raw, state.freeSlots);
+    if (impliedTime) {
+      state.selectedTime = impliedTime;
+      state.stage = "TIME";
+      updateStepBar(4);
+      clearChoices();
+      askName();
+      return;
+    }
+
     askTime();
   }
 
@@ -510,6 +669,9 @@
     if (!time) {
       const n = extractNumber(raw, state.lang, state.freeSlots.length);
       if (n) time = state.freeSlots[n - 1];
+    }
+    if (!time) {
+      time = matchTimeFromText(raw, state.freeSlots);
     }
     if (!time) {
       botSay(t("notUnderstood", state.lang));
